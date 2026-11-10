@@ -1,0 +1,746 @@
+[
+  {
+    "id": "tab_blind_corner_v5",
+    "type": "tab",
+    "label": "Smart Blind-Corner Alert System",
+    "disabled": false,
+    "info": "Hệ thống Cảnh báo Điểm mù Thông minh - Biểu Đồ Đường Theo Dõi Giờ Cao Điểm"
+  },
+  {
+    "id": "db_config_v5",
+    "type": "sqlitedb",
+    "db": "blind_corner.db",
+    "mode": "RWC"
+  },
+  {
+    "id": "ui_base_v5",
+    "type": "ui-base",
+    "name": "Blind Corner Base",
+    "path": "/dashboard",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-theme"
+    ]
+  },
+  {
+    "id": "ui_theme_v5",
+    "type": "ui-theme",
+    "name": "Clean Modern Dark Theme",
+    "colors": {
+      "surface": "#1e293b",
+      "primary": "#38bdf8",
+      "bgPage": "#0f172a",
+      "groupBg": "#1e293b",
+      "groupOutline": "#334155"
+    }
+  },
+  {
+    "id": "ui_page_v5",
+    "type": "ui-page",
+    "name": "Giám Sát Ngã 3 Điểm Mù",
+    "ui": "ui_base_v5",
+    "path": "/home",
+    "icon": "traffic-light",
+    "layout": "grid",
+    "theme": "ui_theme_v5",
+    "order": 1
+  },
+  {
+    "id": "grp_kpi_v5",
+    "type": "ui-group",
+    "name": "Chỉ Số Tổng Quan",
+    "page": "ui_page_v5",
+    "width": "12",
+    "height": "1",
+    "order": 1,
+    "showTitle": true
+  },
+  {
+    "id": "grp_inter_v5",
+    "type": "ui-group",
+    "name": "Sơ Đồ Ngã 3 Điểm Mù (Top-Down)",
+    "page": "ui_page_v5",
+    "width": "7",
+    "height": "8",
+    "order": 2,
+    "showTitle": true
+  },
+  {
+    "id": "grp_chart_v5",
+    "type": "ui-group",
+    "name": "Phân Tích Lưu Lượng & Giờ Cao Điểm",
+    "page": "ui_page_v5",
+    "width": "5",
+    "height": "8",
+    "order": 3,
+    "showTitle": true
+  },
+  {
+    "id": "grp_hist_v5",
+    "type": "ui-group",
+    "name": "Nhật Ký Sự Kiện Gần Đây (SQLite)",
+    "page": "ui_page_v5",
+    "width": "12",
+    "height": "5",
+    "order": 4,
+    "showTitle": true
+  },
+  {
+    "id": "inject_init_db",
+    "type": "inject",
+    "z": "tab_blind_corner_v5",
+    "name": "Khởi tạo DB khi start",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 0.5,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 60,
+    "wires": [
+      [
+        "fn_create_tables_sql"
+      ]
+    ]
+  },
+  {
+    "id": "fn_create_tables_sql",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "SQL Tạo Bảng & Khởi tạo Giờ",
+    "func": "msg.topic = `\nCREATE TABLE IF NOT EXISTS motion_events (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    device_id TEXT NOT NULL,\n    direction TEXT NOT NULL,\n    event_type TEXT NOT NULL,\n    device_timestamp INTEGER,\n    created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\nCREATE TABLE IF NOT EXISTS device_status (\n    device_id TEXT PRIMARY KEY,\n    is_online INTEGER DEFAULT 0,\n    last_heartbeat DATETIME,\n    left_active INTEGER DEFAULT 0,\n    right_active INTEGER DEFAULT 0,\n    led_left_active INTEGER DEFAULT 0,\n    led_right_active INTEGER DEFAULT 0,\n    left_detections INTEGER DEFAULT 0,\n    right_detections INTEGER DEFAULT 0,\n    uptime INTEGER DEFAULT 0,\n    firmware_version TEXT,\n    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\nINSERT OR IGNORE INTO device_status (device_id, is_online, firmware_version) VALUES ('blind-corner-001', 0, '1.0.0');\n`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 60,
+    "wires": [
+      [
+        "sqlite_exec_init"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_exec_init",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "batch",
+    "sql": "",
+    "name": "Tạo bảng SQLite",
+    "x": 630,
+    "y": 60,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "http_in_events",
+    "type": "http in",
+    "z": "tab_blind_corner_v5",
+    "name": "POST /api/devices/events",
+    "url": "/api/devices/events",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 180,
+    "wires": [
+      [
+        "fn_process_event",
+        "http_resp_events"
+      ]
+    ]
+  },
+  {
+    "id": "http_resp_events",
+    "type": "http response",
+    "z": "tab_blind_corner_v5",
+    "name": "200 OK",
+    "statusCode": "200",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "x": 420,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "fn_process_event",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "Xử lý Event & Dữ Liệu Đường Giờ Cao Điểm",
+    "func": "const payload = msg.payload || {};\nconst deviceId   = payload.deviceId  || 'blind-corner-001';\nconst direction  = payload.direction  || 'UNKNOWN';\nconst eventType  = payload.eventType  || 'MOTION_DETECTED';\nconst timestamp  = payload.timestamp  || Math.floor(Date.now() / 1000);\n\n// 1. Ghi nhận sự kiện vào SQLite\nconst sqlMsg = {\n    topic: `INSERT INTO motion_events (device_id, direction, event_type, device_timestamp) VALUES (?, ?, ?, ?) ;`,\n    params: [deviceId, direction, eventType, timestamp]\n};\n\n// 2. Cập nhật Bảng Lịch Sử\nlet events = flow.get('recent_events') || [];\nconst timeStr = new Date().toLocaleTimeString('vi-VN');\nevents.unshift({\n    \"time\": timeStr,\n    \"device\": deviceId,\n    \"direction\": direction === 'LEFT' ? '⬅ XE TRÁI' : '➡ XE PHẢI',\n    \"event\": eventType\n});\nif (events.length > 20) events.pop();\nflow.set('recent_events', events);\nconst uiTableMsg = { payload: events };\n\n// 3. Tính toán nguy cơ va chạm đồng thời\nlet simCount = flow.get('simultaneous_count') || 0;\nconst lastLeftTime  = flow.get('last_left_time')  || 0;\nconst lastRightTime = flow.get('last_right_time') || 0;\nconst nowMs = Date.now();\nlet isCollisionRisk = false;\n\nif (direction === 'LEFT') {\n    flow.set('last_left_time', nowMs);\n    if (nowMs - lastRightTime < 2500) {\n        simCount++;\n        isCollisionRisk = true;\n        flow.set('simultaneous_count', simCount);\n    }\n} else if (direction === 'RIGHT') {\n    flow.set('last_right_time', nowMs);\n    if (nowMs - lastLeftTime < 2500) {\n        simCount++;\n        isCollisionRisk = true;\n        flow.set('simultaneous_count', simCount);\n    }\n}\nconst uiSimMsg = { payload: simCount };\n\n// 4. Cập nhật số đếm xe & Trực quan hóa 2 đèn cùng sáng khi va chạm\nlet leftCount  = flow.get('left_count')  || 0;\nlet rightCount = flow.get('right_count') || 0;\n\nif (direction === 'LEFT') {\n    leftCount++;\n    flow.set('left_count', leftCount);\n} else if (direction === 'RIGHT') {\n    rightCount++;\n    flow.set('right_count', rightCount);\n}\n\n// Kiểm tra cả 2 xe trong cửa sổ 2.5 giây (nếu cả 2 cùng tới -> CẢ 2 ĐÈN CÙNG SÁNG)\nconst isLeftActive  = (nowMs - (flow.get('last_left_time')  || 0) < 2500);\nconst isRightActive = (nowMs - (flow.get('last_right_time') || 0) < 2500);\n\nconst simVisualMsg = {\n    payload: {\n        isLeft:          isLeftActive,\n        isRight:         isRightActive,\n        isLedRight:      isLeftActive,   // Xe Trái tới -> Đèn Đỏ bên phải bật\n        isLedLeft:       isRightActive,  // Xe Phải tới -> Đèn Xanh bên trái bật\n        isCollisionRisk: (isLeftActive && isRightActive)\n    }\n};\n\nconst uiLeftCountMsg  = { payload: leftCount };\nconst uiRightCountMsg = { payload: rightCount };\n\n// 5. Cập nhật Lịch sử Lưu lượng theo Giờ phục vụ Biểu Đồ Đường\nlet hourly = flow.get('hourly_traffic');\nif (!hourly) {\n    hourly = [\n        { time: \"16:00\", left: 4,  right: 3  },\n        { time: \"17:00\", left: 9,  right: 11 },\n        { time: \"18:00\", left: 16, right: 24 },\n        { time: \"19:00\", left: 12, right: 18 },\n        { time: \"20:00\", left: 7,  right: 14 },\n        { time: \"21:00\", left: 6,  right: 12 },\n        { time: \"22:00\", left: leftCount, right: rightCount }\n    ];\n} else {\n    hourly[hourly.length - 1].left  = leftCount;\n    hourly[hourly.length - 1].right = rightCount;\n}\nflow.set('hourly_traffic', hourly);\n\nconst lineChartMsg    = { payload: hourly };\nconst resetTriggerMsg = { payload: \"RESET_INTERSECTION\" };\n\nreturn [\n    sqlMsg,\n    uiTableMsg,\n    uiSimMsg,\n    uiLeftCountMsg,\n    uiRightCountMsg,\n    simVisualMsg,\n    lineChartMsg,\n    resetTriggerMsg\n];\n",
+    "outputs": 8,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 200,
+    "wires": [
+      [
+        "sqlite_save_event"
+      ],
+      [
+        "ui_tbl_history"
+      ],
+      [
+        "ui_txt_simultaneous"
+      ],
+      [
+        "ui_txt_left_count"
+      ],
+      [
+        "ui_txt_right_count"
+      ],
+      [
+        "ui_template_intersection"
+      ],
+      [
+        "ui_template_linechart"
+      ],
+      [
+        "trigger_auto_reset_inter"
+      ]
+    ]
+  },
+  {
+    "id": "trigger_auto_reset_inter",
+    "type": "trigger",
+    "z": "tab_blind_corner_v5",
+    "name": "Auto Reset Xe Cộ 2.5s",
+    "op1": "",
+    "op2": "CLEAR",
+    "op1type": "nul",
+    "op2type": "str",
+    "duration": "2.5",
+    "extend": true,
+    "overrideDelay": false,
+    "units": "s",
+    "reset": "",
+    "bytopic": "all",
+    "topic": "topic",
+    "outputs": 1,
+    "x": 750,
+    "y": 140,
+    "wires": [
+      [
+        "fn_reset_inter_payload"
+      ]
+    ]
+  },
+  {
+    "id": "fn_reset_inter_payload",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "Reset Trạng Thái Xe Cộ",
+    "func": "msg.payload = {\n    isLeft: false,\n    isRight: false,\n    isLedLeft: false,\n    isLedRight: false,\n    isCollisionRisk: false\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1000,
+    "y": 140,
+    "wires": [
+      [
+        "ui_template_intersection"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_save_event",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "prepared",
+    "sql": "",
+    "name": "Lưu Sự Kiện",
+    "x": 730,
+    "y": 180,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ui_tbl_history",
+    "type": "ui-table",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_hist_v5",
+    "name": "Bảng Lịch Sử",
+    "order": 1,
+    "width": "12",
+    "height": "5",
+    "columns": [
+      {
+        "key": "time",
+        "label": "Thời Gian",
+        "type": "text"
+      },
+      {
+        "key": "device",
+        "label": "Thiết Bị",
+        "type": "text"
+      },
+      {
+        "key": "direction",
+        "label": "Hướng Xe",
+        "type": "text"
+      },
+      {
+        "key": "event",
+        "label": "Sự Kiện",
+        "type": "text"
+      }
+    ],
+    "x": 730,
+    "y": 220,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ui_template_linechart",
+    "type": "ui-template",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_chart_v5",
+    "name": "Biểu Đồ Đường Giờ Cao Điểm",
+    "order": 1,
+    "width": "5",
+    "height": "8",
+    "format": "<template>\n  <div class=\"linechart-card\">\n    <!-- Header & Phân tích Giờ Cao Điểm -->\n    <div class=\"chart-header\">\n      <div>\n        <div class=\"chart-title\">📈 BIỂU ĐỒ LƯU LƯỢNG THEO GIỜ</div>\n        <div class=\"peak-badge\">\n          🔥 Cao điểm nhất: <b>{{ peakHour.time }}</b> ({{ peakHour.total }} xe/h)\n        </div>\n      </div>\n    </div>\n\n    <!-- Chú thích 2 đường -->\n    <div class=\"chart-legend\">\n      <span class=\"legend-item\"><span class=\"dot blue\"></span> Xe Trái ({{ currentLeft }} xe)</span>\n      <span class=\"legend-item\"><span class=\"dot orange\"></span> Xe Phải ({{ currentRight }} xe)</span>\n    </div>\n\n    <!-- Bản vẽ Biểu Đồ Đường SVG (Line Chart) -->\n    <svg viewBox=\"0 0 340 210\" class=\"chart-svg\">\n      <!-- Lưới ngang Y và nhãn số lượng xe -->\n      <line x1=\"35\" y1=\"20\" x2=\"325\" y2=\"20\" stroke=\"#334155\" stroke-dasharray=\"3,3\" stroke-width=\"1\"/>\n      <text x=\"28\" y=\"24\" fill=\"#64748b\" font-size=\"9\" text-anchor=\"end\">{{ maxVal }}</text>\n\n      <line x1=\"35\" y1=\"60\" x2=\"325\" y2=\"60\" stroke=\"#334155\" stroke-dasharray=\"3,3\" stroke-width=\"1\"/>\n      <text x=\"28\" y=\"64\" fill=\"#64748b\" font-size=\"9\" text-anchor=\"end\">{{ Math.round(maxVal * 0.66) }}</text>\n\n      <line x1=\"35\" y1=\"100\" x2=\"325\" y2=\"100\" stroke=\"#334155\" stroke-dasharray=\"3,3\" stroke-width=\"1\"/>\n      <text x=\"28\" y=\"104\" fill=\"#64748b\" font-size=\"9\" text-anchor=\"end\">{{ Math.round(maxVal * 0.33) }}</text>\n\n      <!-- Trục hoành X = 0 -->\n      <line x1=\"35\" y1=\"140\" x2=\"325\" y2=\"140\" stroke=\"#475569\" stroke-width=\"1.5\"/>\n      <text x=\"28\" y=\"144\" fill=\"#64748b\" font-size=\"9\" text-anchor=\"end\">0</text>\n\n      <!-- Tô màu diện tích mờ dưới đường cong (Area fill) -->\n      <polygon :points=\"areaPointsLeft\" fill=\"url(#gradAreaBlue)\" opacity=\"0.2\"/>\n      <polygon :points=\"areaPointsRight\" fill=\"url(#gradAreaOrange)\" opacity=\"0.2\"/>\n\n      <!-- ĐƯỜNG CONG XE HƯỚNG TRÁI (MÀU XANH LAM) -->\n      <polyline :points=\"linePointsLeft\" fill=\"none\" stroke=\"#38bdf8\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n      <!-- Các điểm tròn trên đường xanh -->\n      <circle v-for=\"(p, i) in pointsLeft\" :key=\"'l'+i\" :cx=\"p.x\" :cy=\"p.y\" r=\"4\" fill=\"#0284c7\" stroke=\"#38bdf8\" stroke-width=\"2\"/>\n\n      <!-- ĐƯỜNG CONG XE HƯỚNG PHẢI (MÀU CAM) -->\n      <polyline :points=\"linePointsRight\" fill=\"none\" stroke=\"#fb923c\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n      <!-- Các điểm tròn trên đường cam -->\n      <circle v-for=\"(p, i) in pointsRight\" :key=\"'r'+i\" :cx=\"p.x\" :cy=\"p.y\" r=\"4\" fill=\"#ea580c\" stroke=\"#fb923c\" stroke-width=\"2\"/>\n\n      <!-- Nhãn các mốc giờ trên trục hoành X (16:00, 17:00...) -->\n      <text v-for=\"(item, i) in pointsLeft\" :key=\"'t'+i\" :x=\"item.x\" y=\"158\" fill=\"#94a3b8\" font-size=\"9\" font-weight=\"bold\" text-anchor=\"middle\">\n        {{ traffic[i].time }}\n      </text>\n\n      <defs>\n        <linearGradient id=\"gradAreaBlue\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">\n          <stop offset=\"0%\" stop-color=\"#38bdf8\" stop-opacity=\"0.6\"/>\n          <stop offset=\"100%\" stop-color=\"#38bdf8\" stop-opacity=\"0\"/>\n        </linearGradient>\n        <linearGradient id=\"gradAreaOrange\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">\n          <stop offset=\"0%\" stop-color=\"#fb923c\" stop-opacity=\"0.6\"/>\n          <stop offset=\"100%\" stop-color=\"#fb923c\" stop-opacity=\"0\"/>\n        </linearGradient>\n      </defs>\n    </svg>\n\n    <!-- Thanh cảnh báo mật độ -->\n    <div class=\"trend-footer\">\n      <span>🚦 Trạng thái hiện tại: <b :style=\"{ color: densityColor }\">{{ densityStatus }}</b></span>\n      <span>Tổng ngày: <b>{{ totalDay }}</b> lượt</span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      traffic: [\n        { time: \"16:00\", left: 4, right: 3 },\n        { time: \"17:00\", left: 9, right: 11 },\n        { time: \"18:00\", left: 16, right: 24 }, // Đỉnh cao điểm mẫu\n        { time: \"19:00\", left: 12, right: 18 },\n        { time: \"20:00\", left: 7, right: 14 },\n        { time: \"21:00\", left: 6, right: 12 },\n        { time: \"22:00\", left: 8, right: 21 }\n      ]\n    }\n  },\n  computed: {\n    maxVal() {\n      let m = 20;\n      this.traffic.forEach(d => {\n        if (d.left > m) m = d.left;\n        if (d.right > m) m = d.right;\n      });\n      return Math.ceil(m / 5) * 5;\n    },\n    pointsLeft() {\n      const startX = 50;\n      const endX = 310;\n      const stepX = (endX - startX) / (this.traffic.length - 1);\n      return this.traffic.map((d, i) => ({\n        x: Math.round(startX + i * stepX),\n        y: Math.round(140 - (d.left / this.maxVal) * 120)\n      }));\n    },\n    pointsRight() {\n      const startX = 50;\n      const endX = 310;\n      const stepX = (endX - startX) / (this.traffic.length - 1);\n      return this.traffic.map((d, i) => ({\n        x: Math.round(startX + i * stepX),\n        y: Math.round(140 - (d.right / this.maxVal) * 120)\n      }));\n    },\n    linePointsLeft() {\n      return this.pointsLeft.map(p => `${p.x},${p.y}`).join(\" \");\n    },\n    linePointsRight() {\n      return this.pointsRight.map(p => `${p.x},${p.y}`).join(\" \");\n    },\n    areaPointsLeft() {\n      if (!this.pointsLeft.length) return \"\";\n      const first = this.pointsLeft[0];\n      const last = this.pointsLeft[this.pointsLeft.length - 1];\n      return `${first.x},140 ` + this.linePointsLeft + ` ${last.x},140`;\n    },\n    areaPointsRight() {\n      if (!this.pointsRight.length) return \"\";\n      const first = this.pointsRight[0];\n      const last = this.pointsRight[this.pointsRight.length - 1];\n      return `${first.x},140 ` + this.linePointsRight + ` ${last.x},140`;\n    },\n    peakHour() {\n      let maxT = 0;\n      let peak = { time: \"18:00\", total: 40 };\n      this.traffic.forEach(d => {\n        const t = d.left + d.right;\n        if (t > maxT) {\n          maxT = t;\n          peak = { time: d.time, total: t };\n        }\n      });\n      return peak;\n    },\n    currentLeft() {\n      return this.traffic[this.traffic.length - 1].left;\n    },\n    currentRight() {\n      return this.traffic[this.traffic.length - 1].right;\n    },\n    totalDay() {\n      return this.traffic.reduce((acc, d) => acc + d.left + d.right, 0);\n    },\n    densityStatus() {\n      const cur = this.currentLeft + this.currentRight;\n      if (cur > 30) return \"MẬT ĐỘ RẤT CAO\";\n      if (cur > 15) return \"MẬT ĐỘ VỪA PHẢI\";\n      return \"MẬT ĐỘ THẤP\";\n    },\n    densityColor() {\n      const cur = this.currentLeft + this.currentRight;\n      if (cur > 30) return \"#ef4444\";\n      if (cur > 15) return \"#f59e0b\";\n      return \"#10b981\";\n    }\n  },\n  watch: {\n    msg: function(newVal) {\n      if (newVal && newVal.payload && Array.isArray(newVal.payload)) {\n        this.traffic = newVal.payload;\n      }\n    }\n  }\n}\n</script>\n\n<style scoped>\n.linechart-card {\n  background: #0f172a;\n  border-radius: 10px;\n  padding: 12px;\n  border: 1px solid #334155;\n  box-shadow: 0 4px 20px rgba(0,0,0,0.5);\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  justify-content: space-between;\n}\n.chart-header {\n  display: flex;\n  justify-content: space-between;\n  align-items: flex-start;\n}\n.chart-title {\n  font-weight: 800;\n  color: #38bdf8;\n  font-size: 13px;\n  letter-spacing: 0.5px;\n}\n.peak-badge {\n  display: inline-block;\n  background: rgba(239, 68, 68, 0.2);\n  color: #f87171;\n  border: 1px solid #ef4444;\n  padding: 2px 8px;\n  border-radius: 12px;\n  font-size: 11px;\n  font-weight: bold;\n  margin-top: 3px;\n}\n.chart-legend {\n  display: flex;\n  gap: 15px;\n  font-size: 11px;\n  margin: 6px 0;\n}\n.legend-item {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  color: #cbd5e1;\n}\n.dot {\n  width: 8px;\n  height: 8px;\n  border-radius: 50%;\n}\n.dot.blue { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }\n.dot.orange { background: #fb923c; box-shadow: 0 0 6px #fb923c; }\n.chart-svg {\n  width: 100%;\n  height: auto;\n}\n.trend-footer {\n  display: flex;\n  justify-content: space-between;\n  font-size: 11px;\n  background: #1e293b;\n  padding: 6px 10px;\n  border-radius: 6px;\n  border: 1px solid #334155;\n  color: #94a3b8;\n}\n.trend-footer b {\n  color: #f8fafc;\n}\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "x": 780,
+    "y": 260,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ui_template_intersection",
+    "type": "ui-template",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_inter_v5",
+    "name": "Bản Đồ Ngã 3 Top-Down",
+    "order": 1,
+    "width": "7",
+    "height": "8",
+    "format": "<template>\n  <div class=\"inter-box\">\n    <svg viewBox=\"0 0 520 340\" class=\"inter-svg\">\n      <!-- Nền đường nhựa tối màu -->\n      <rect width=\"520\" height=\"340\" fill=\"#090e1a\" rx=\"8\"/>\n      \n      <!-- ĐƯỜNG CHÍNH CHẠY NGANG -->\n      <rect x=\"0\" y=\"50\" width=\"520\" height=\"110\" fill=\"#1e293b\"/>\n      <!-- ĐƯỜNG NHÁNH RẼ DỌC TỪ DƯỚI LÊN -->\n      <rect x=\"270\" y=\"160\" width=\"110\" height=\"180\" fill=\"#1e293b\"/>\n\n      <!-- Vạch lề đường xám -->\n      <line x1=\"0\" y1=\"50\" x2=\"520\" y2=\"50\" stroke=\"#475569\" stroke-width=\"3\"/>\n      <line x1=\"0\" y1=\"160\" x2=\"270\" y2=\"160\" stroke=\"#475569\" stroke-width=\"3\"/>\n      <line x1=\"380\" y1=\"160\" x2=\"520\" y2=\"160\" stroke=\"#475569\" stroke-width=\"3\"/>\n      <line x1=\"270\" y1=\"160\" x2=\"270\" y2=\"340\" stroke=\"#475569\" stroke-width=\"3\"/>\n      <line x1=\"380\" y1=\"160\" x2=\"380\" y2=\"340\" stroke=\"#475569\" stroke-width=\"3\"/>\n\n      <!-- VẠCH KẺ ĐƯỜNG MÀU VÀNG ĐỨT ĐOẠN -->\n      <line x1=\"0\" y1=\"105\" x2=\"270\" y2=\"105\" stroke=\"#facc15\" stroke-dasharray=\"12,10\" stroke-width=\"3\"/>\n      <line x1=\"380\" y1=\"105\" x2=\"520\" y2=\"105\" stroke=\"#facc15\" stroke-dasharray=\"12,10\" stroke-width=\"3\"/>\n      <line x1=\"325\" y1=\"160\" x2=\"325\" y2=\"340\" stroke=\"#facc15\" stroke-dasharray=\"12,10\" stroke-width=\"3\"/>\n\n\n      <!-- TÒA NHÀ GÓC KHUẤT (ĐÃ BỎ BẢNG CHỮ, THIẾT KẾ GỌN GÀNG SẠCH ĐẸP) -->\n      <g transform=\"translate(0, 160)\">\n        <!-- Khối bê tông góc tường -->\n        <rect x=\"0\" y=\"0\" width=\"270\" height=\"180\" fill=\"#334155\" stroke=\"#64748b\" stroke-width=\"2.5\"/>\n        <rect x=\"8\" y=\"8\" width=\"254\" height=\"164\" fill=\"#1e293b\" rx=\"4\"/>\n        \n        <!-- Họa tiết vạch chéo kiến trúc nhẹ nhàng -->\n        <pattern id=\"subtleHatch\" width=\"16\" height=\"16\" patternTransform=\"rotate(45 0 0)\" patternUnits=\"userSpaceOnUse\">\n          <line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"16\" stroke=\"#26334d\" stroke-width=\"4\" />\n        </pattern>\n        <rect x=\"16\" y=\"16\" width=\"238\" height=\"148\" fill=\"url(#subtleHatch)\" rx=\"3\"/>\n      </g>\n\n      <!-- Khu đất đối diện bên phải -->\n      <rect x=\"380\" y=\"160\" width=\"140\" height=\"180\" fill=\"#1e293b\" stroke=\"#334155\" stroke-width=\"2\"/>\n\n      <!-- CẢM BIẾN PIR & ĐÈN CẢNH BÁO TẠI GÓC KHUẤT -->\n      <!-- CẢM BIẾN PIR TRÁI (GPIO 18) -->\n      <g transform=\"translate(200, 165)\">\n        <circle cx=\"0\" cy=\"0\" r=\"7\" :fill=\"isLeft ? '#38bdf8' : '#64748b'\" stroke=\"#ffffff\" stroke-width=\"2\"/>\n        <path d=\"M 0 0 L -120 -30 L -120 10 Z\" :fill=\"isLeft ? 'rgba(56, 189, 248, 0.35)' : 'rgba(100, 116, 139, 0.08)'\" :stroke=\"isLeft ? '#38bdf8' : 'transparent'\" stroke-width=\"1.5\" stroke-dasharray=\"4,3\"/>\n        <text x=\"-40\" y=\"18\" fill=\"#38bdf8\" font-size=\"10\" font-weight=\"bold\">PIR Trái</text>\n      </g>\n\n      <!-- CẢM BIẾN PIR PHẢI (GPIO 16) -->\n      <g transform=\"translate(265, 235)\">\n        <circle cx=\"0\" cy=\"0\" r=\"7\" :fill=\"isRight ? '#38bdf8' : '#64748b'\" stroke=\"#ffffff\" stroke-width=\"2\"/>\n        <path d=\"M 0 0 L 60 75 L 115 75 Z\" :fill=\"isRight ? 'rgba(56, 189, 248, 0.35)' : 'rgba(100, 116, 139, 0.08)'\" :stroke=\"isRight ? '#38bdf8' : 'transparent'\" stroke-width=\"1.5\" stroke-dasharray=\"4,3\"/>\n        <text x=\"-70\" y=\"5\" fill=\"#38bdf8\" font-size=\"10\" font-weight=\"bold\">PIR Phải</text>\n      </g>\n\n      <!-- ĐÈN CẢNH BÁO PHẢI (LED ĐỎ - GPIO 17) -> Hướng về nhánh dưới -->\n      <g transform=\"translate(285, 175)\">\n        <rect x=\"-9\" y=\"-9\" width=\"18\" height=\"18\" rx=\"3\" fill=\"#0f172a\" stroke=\"#475569\" stroke-width=\"1.5\"/>\n        <circle cx=\"0\" cy=\"0\" r=\"6\" :fill=\"isLedRight ? '#ef4444' : '#450a0a'\" :stroke=\"isLedRight ? '#fca5a5' : '#7f1d1d'\" stroke-width=\"2\"/>\n        <circle v-if=\"isLedRight\" cx=\"0\" cy=\"0\" r=\"20\" fill=\"none\" stroke=\"#ef4444\" stroke-width=\"3\" class=\"glow-red\"/>\n        <text x=\"14\" y=\"4\" fill=\"#fca5a5\" font-size=\"11\" font-weight=\"bold\" font-family=\"sans-serif\">{{ isLedRight ? '🔴 BẬT' : '🔴 TẮT' }}</text>\n      </g>\n\n      <!-- ĐÈN CẢNH BÁO TRÁI (LED XANH - GPIO 19) -> Hướng về đường ngang -->\n      <g transform=\"translate(255, 145)\">\n        <rect x=\"-9\" y=\"-9\" width=\"18\" height=\"18\" rx=\"3\" fill=\"#0f172a\" stroke=\"#475569\" stroke-width=\"1.5\"/>\n        <circle cx=\"0\" cy=\"0\" r=\"6\" :fill=\"isLedLeft ? '#22c55e' : '#052e16'\" :stroke=\"isLedLeft ? '#86efac' : '#14532d'\" stroke-width=\"2\"/>\n        <circle v-if=\"isLedLeft\" cx=\"0\" cy=\"0\" r=\"20\" fill=\"none\" stroke=\"#22c55e\" stroke-width=\"3\" class=\"glow-green\"/>\n        <text x=\"5\" y=\"-10\" fill=\"#86efac\" font-size=\"11\" font-weight=\"bold\" font-family=\"sans-serif\">{{ isLedLeft ? '🟢 BẬT' : '🟢 TẮT' }}</text>\n      </g>\n\n      <!-- XE CÔ (SEDAN TOP-DOWN) CHUYỂN ĐỘNG THỰC TẾ -->\n      <g :transform=\"isLeft ? 'translate(130, 115)' : 'translate(35, 115)'\" class=\"vehicle-anim\">\n        <!-- Ánh đèn pha trước xe -->\n        <polygon points=\"50,-8 115,-20 115,20 50,8\" fill=\"url(#hlGradX)\" opacity=\"0.55\"/>\n        <!-- Thân xe ô tô con -->\n        <rect x=\"0\" y=\"-14\" width=\"50\" height=\"28\" rx=\"7\" fill=\"#0284c7\" stroke=\"#38bdf8\" stroke-width=\"2\"/>\n        <!-- Kính xe -->\n        <rect x=\"31\" y=\"-10\" width=\"9\" height=\"20\" rx=\"2\" fill=\"#0f172a\"/>\n        <rect x=\"7\" y=\"-9\" width=\"7\" height=\"18\" rx=\"2\" fill=\"#0f172a\"/>\n        <rect x=\"16\" y=\"-10\" width=\"13\" height=\"20\" fill=\"#0369a1\" rx=\"2\"/>\n        <!-- Đèn pha -->\n        <circle cx=\"50\" cy=\"-9\" r=\"3\" fill=\"#fef08a\"/>\n        <circle cx=\"50\" cy=\"9\" r=\"3\" fill=\"#fef08a\"/>\n        \n      </g>\n\n      <g :transform=\"isRight ? 'translate(353, 205)' : 'translate(353, 280)'\" class=\"vehicle-anim\">\n        <!-- Ánh đèn pha trước xe -->\n        <polygon points=\"-8,0 -20,-65 20,-65 8,0\" fill=\"url(#hlGradY)\" opacity=\"0.55\"/>\n        <!-- Thân xe ô tô con -->\n        <rect x=\"-14\" y=\"0\" width=\"28\" height=\"50\" rx=\"7\" fill=\"#ea580c\" stroke=\"#fb923c\" stroke-width=\"2\"/>\n        <!-- Kính xe -->\n        <rect x=\"-10\" y=\"9\" width=\"20\" height=\"9\" rx=\"2\" fill=\"#0f172a\"/>\n        <rect x=\"-9\" y=\"34\" width=\"18\" height=\"7\" rx=\"2\" fill=\"#0f172a\"/>\n        <rect x=\"-10\" y=\"20\" width=\"20\" height=\"12\" fill=\"#c2410c\" rx=\"2\"/>\n        <!-- Đèn pha -->\n        <circle cx=\"-9\" cy=\"0\" r=\"3\" fill=\"#fef08a\"/>\n        <circle cx=\"9\" cy=\"0\" r=\"3\" fill=\"#fef08a\"/>\n        \n      </g>\n\n      <defs>\n        <linearGradient id=\"hlGradX\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"0%\">\n          <stop offset=\"0%\" stop-color=\"#fef08a\" stop-opacity=\"0.7\"/>\n          <stop offset=\"100%\" stop-color=\"#fef08a\" stop-opacity=\"0\"/>\n        </linearGradient>\n        <linearGradient id=\"hlGradY\" x1=\"0%\" y1=\"100%\" x2=\"0%\" y2=\"0%\">\n          <stop offset=\"0%\" stop-color=\"#fef08a\" stop-opacity=\"0.7\"/>\n          <stop offset=\"100%\" stop-color=\"#fef08a\" stop-opacity=\"0\"/>\n        </linearGradient>\n      </defs>\n    </svg>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      isLeft: false,\n      isRight: false,\n      isLedLeft: false,\n      isLedRight: false,\n      isCollisionRisk: false\n    }\n  },\n  watch: {\n    msg: function(newVal) {\n      if (newVal && newVal.payload) {\n        const p = newVal.payload;\n        if (typeof p.isLeft !== 'undefined') this.isLeft = p.isLeft;\n        if (typeof p.isRight !== 'undefined') this.isRight = p.isRight;\n        if (typeof p.isLedLeft !== 'undefined') this.isLedLeft = p.isLedLeft;\n        if (typeof p.isLedRight !== 'undefined') this.isLedRight = p.isLedRight;\n        if (typeof p.isCollisionRisk !== 'undefined') this.isCollisionRisk = p.isCollisionRisk;\n      }\n    }\n  }\n}\n</script>\n\n<style scoped>\n.inter-box {\n  background: #0f172a;\n  border-radius: 10px;\n  padding: 10px;\n  border: 1px solid #334155;\n  box-shadow: 0 4px 20px rgba(0,0,0,0.5);\n}\n.inter-svg {\n  width: 100%;\n  height: auto;\n  border-radius: 6px;\n  background: #090e1a;\n}\n.vehicle-anim {\n  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);\n}\n.glow-green {\n  animation: greenPulse 0.9s infinite alternate;\n}\n@keyframes greenPulse {\n  from { stroke-opacity: 0.2; r: 8; }\n  to { stroke-opacity: 1; r: 20; }\n}\n.glow-red {\n  animation: redPulse 0.9s infinite alternate;\n}\n@keyframes redPulse {\n  from { stroke-opacity: 0.2; r: 8; }\n  to { stroke-opacity: 1; r: 20; }\n}\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "x": 780,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "http_in_heartbeat",
+    "type": "http in",
+    "z": "tab_blind_corner_v5",
+    "name": "POST /api/devices/heartbeat",
+    "url": "/api/devices/heartbeat",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 420,
+    "wires": [
+      [
+        "fn_process_heartbeat",
+        "http_resp_heartbeat"
+      ]
+    ]
+  },
+  {
+    "id": "http_resp_heartbeat",
+    "type": "http response",
+    "z": "tab_blind_corner_v5",
+    "name": "200 OK",
+    "statusCode": "200",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "x": 420,
+    "y": 380,
+    "wires": []
+  },
+  {
+    "id": "fn_process_heartbeat",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "Xử lý Heartbeat, Watchdog & Chart",
+    "func": "const p = msg.payload || {};\nconst deviceId = p.deviceId || 'blind-corner-001';\nconst isLeft = !!p.left;\nconst isRight = !!p.right;\nconst ledLeft = !!p.ledLeft;\nconst ledRight = !!p.ledRight;\nconst leftCount = p.leftDetections || 0;\nconst rightCount = p.rightDetections || 0;\nconst uptime = p.uptime || 0;\nconst version = p.firmwareVersion || '1.0.0';\n\nflow.set('left_count', leftCount);\nflow.set('right_count', rightCount);\n\n// 1. Cập nhật SQLite\nconst sqlMsg = {\n    topic: `UPDATE device_status SET is_online = 1, last_heartbeat = CURRENT_TIMESTAMP, left_active = ?, right_active = ?, led_left_active = ?, led_right_active = ?, left_detections = ?, right_detections = ?, uptime = ?, firmware_version = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = ?;`,\n    params: [isLeft?1:0, isRight?1:0, ledLeft?1:0, ledRight?1:0, leftCount, rightCount, uptime, version, deviceId]\n};\n\n// 2. Watchdog feed\nconst watchdogMsg = { payload: \"RESET_WATCHDOG\" };\n\n// 3. UI KPI Status\nconst uiStatusMsg = { payload: \"ONLINE 🟢 (\" + Math.floor(uptime/60) + \"p)\" };\nconst uiLeftCountMsg = { payload: leftCount };\nconst uiRightCountMsg = { payload: rightCount };\n\n// 4. Đồng bộ Biểu Đồ Đường Giờ Cao Điểm\nlet hourly = flow.get('hourly_traffic');\nif (!hourly) {\n    hourly = [\n        { time: \"16:00\", left: 4, right: 3 },\n        { time: \"17:00\", left: 9, right: 11 },\n        { time: \"18:00\", left: 16, right: 24 },\n        { time: \"19:00\", left: 12, right: 18 },\n        { time: \"20:00\", left: 7, right: 14 },\n        { time: \"21:00\", left: 6, right: 12 },\n        { time: \"22:00\", left: leftCount, right: rightCount }\n    ];\n} else {\n    hourly[hourly.length - 1].left = leftCount;\n    hourly[hourly.length - 1].right = rightCount;\n}\nflow.set('hourly_traffic', hourly);\n\nconst lineChartMsg = { payload: hourly };\n\nreturn [\n    sqlMsg, \n    watchdogMsg, \n    uiStatusMsg, \n    uiLeftCountMsg, \n    uiRightCountMsg, \n    lineChartMsg\n];",
+    "outputs": 6,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 440,
+    "wires": [
+      [
+        "sqlite_update_device"
+      ],
+      [
+        "watchdog_trigger_45s"
+      ],
+      [
+        "ui_txt_online_status"
+      ],
+      [
+        "ui_txt_left_count"
+      ],
+      [
+        "ui_txt_right_count"
+      ],
+      [
+        "ui_template_linechart"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_update_device",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "prepared",
+    "sql": "",
+    "name": "Cập Nhật SQLite",
+    "x": 730,
+    "y": 400,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "watchdog_trigger_45s",
+    "type": "trigger",
+    "z": "tab_blind_corner_v5",
+    "name": "Watchdog 45 Giây",
+    "op1": "",
+    "op2": "OFFLINE 🔴",
+    "op1type": "nul",
+    "op2type": "str",
+    "duration": "45",
+    "extend": true,
+    "overrideDelay": false,
+    "units": "s",
+    "reset": "RESET_WATCHDOG",
+    "bytopic": "all",
+    "topic": "topic",
+    "outputs": 1,
+    "x": 730,
+    "y": 440,
+    "wires": [
+      [
+        "ui_txt_online_status",
+        "fn_mark_offline_db"
+      ]
+    ]
+  },
+  {
+    "id": "fn_mark_offline_db",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "Ghi nhận Offline SQLite",
+    "func": "msg.topic = \"UPDATE device_status SET is_online = 0 WHERE device_id = 'blind-corner-001';\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 970,
+    "y": 440,
+    "wires": [
+      [
+        "sqlite_update_device"
+      ]
+    ]
+  },
+  {
+    "id": "ui_txt_online_status",
+    "type": "ui-text",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_kpi_v5",
+    "order": 1,
+    "width": "3",
+    "height": "1",
+    "name": "Trạng Thái Online",
+    "label": "Trạng thái thiết bị:",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 17,
+    "color": "#10b981",
+    "x": 980,
+    "y": 480,
+    "wires": []
+  },
+  {
+    "id": "ui_txt_left_count",
+    "type": "ui-text",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_kpi_v5",
+    "order": 2,
+    "width": "3",
+    "height": "1",
+    "name": "Lượt Xe Trái",
+    "label": "⬅ Lượt Xe Trái:",
+    "format": "{{msg.payload}} lượt",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 17,
+    "color": "#38bdf8",
+    "x": 960,
+    "y": 520,
+    "wires": []
+  },
+  {
+    "id": "ui_txt_right_count",
+    "type": "ui-text",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_kpi_v5",
+    "order": 3,
+    "width": "3",
+    "height": "1",
+    "name": "Lượt Xe Phải",
+    "label": "➡ Lượt Xe Phải:",
+    "format": "{{msg.payload}} lượt",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 17,
+    "color": "#38bdf8",
+    "x": 960,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "ui_txt_simultaneous",
+    "type": "ui-text",
+    "z": "tab_blind_corner_v5",
+    "group": "grp_kpi_v5",
+    "order": 4,
+    "width": "3",
+    "height": "1",
+    "name": "Cảnh Báo Cùng Lúc",
+    "label": "⚠ Nguy cơ va chạm:",
+    "format": "{{msg.payload}} lần",
+    "layout": "row-spread",
+    "style": false,
+    "font": "",
+    "fontSize": 17,
+    "color": "#ef4444",
+    "x": 980,
+    "y": 600,
+    "wires": []
+  },
+  {
+    "id": "http_in_get_status",
+    "type": "http in",
+    "z": "tab_blind_corner_v5",
+    "name": "GET /api/devices/status",
+    "url": "/api/devices/status",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 820,
+    "wires": [
+      [
+        "fn_sql_get_status"
+      ]
+    ]
+  },
+  {
+    "id": "fn_sql_get_status",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "SQL Query Status",
+    "func": "msg.topic = \"SELECT * FROM device_status WHERE device_id = 'blind-corner-001' LIMIT 1;\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 820,
+    "wires": [
+      [
+        "sqlite_query_status"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_query_status",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "basic",
+    "sql": "",
+    "name": "Đọc Trạng Thái",
+    "x": 640,
+    "y": 820,
+    "wires": [
+      [
+        "fn_format_json_response"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_get_history",
+    "type": "http in",
+    "z": "tab_blind_corner_v5",
+    "name": "GET /api/devices/history",
+    "url": "/api/devices/history",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 900,
+    "wires": [
+      [
+        "fn_sql_get_history"
+      ]
+    ]
+  },
+  {
+    "id": "fn_sql_get_history",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "SQL Query History",
+    "func": "msg.topic = \"SELECT id, device_id, direction, event_type, device_timestamp, created_at FROM motion_events ORDER BY id DESC LIMIT 50;\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 900,
+    "wires": [
+      [
+        "sqlite_query_history"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_query_history",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "basic",
+    "sql": "",
+    "name": "Đọc Lịch Sử",
+    "x": 640,
+    "y": 900,
+    "wires": [
+      [
+        "fn_format_json_response"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_get_stats",
+    "type": "http in",
+    "z": "tab_blind_corner_v5",
+    "name": "GET /api/devices/statistics",
+    "url": "/api/devices/statistics",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 980,
+    "wires": [
+      [
+        "fn_sql_get_stats"
+      ]
+    ]
+  },
+  {
+    "id": "fn_sql_get_stats",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "SQL Query Stats",
+    "func": "msg.topic = `\nSELECT \n  direction,\n  COUNT(*) as total_events,\n  MIN(created_at) as earliest_event,\n  MAX(created_at) as latest_event\nFROM motion_events \nGROUP BY direction;\n`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 980,
+    "wires": [
+      [
+        "sqlite_query_stats"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_query_stats",
+    "type": "sqlite",
+    "z": "tab_blind_corner_v5",
+    "mydb": "db_config_v5",
+    "sqlquery": "basic",
+    "sql": "",
+    "name": "Đọc Thống Kê",
+    "x": 640,
+    "y": 980,
+    "wires": [
+      [
+        "fn_format_json_response"
+      ]
+    ]
+  },
+  {
+    "id": "fn_format_json_response",
+    "type": "function",
+    "z": "tab_blind_corner_v5",
+    "name": "Chuẩn hóa JSON Response",
+    "func": "msg.headers = {\"Content-Type\": \"application/json\"};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 890,
+    "y": 900,
+    "wires": [
+      [
+        "http_resp_get_api"
+      ]
+    ]
+  },
+  {
+    "id": "http_resp_get_api",
+    "type": "http response",
+    "z": "tab_blind_corner_v5",
+    "name": "Trả về dữ liệu JSON",
+    "statusCode": "200",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "x": 1130,
+    "y": 900,
+    "wires": []
+  }
+]
